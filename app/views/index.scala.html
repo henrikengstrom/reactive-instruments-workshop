@@ -1,0 +1,23 @@
+@(name: String)
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Reactive Instruments Workshop</title>
+		<link rel="stylesheet" media="screen" href="@routes.Assets.versioned("stylesheets/main.css")"/>
+		<style>
+			html {
+				background: url(@routes.Assets.versioned("images/mountain.jpg")) no-repeat center center fixed;
+				-webkit-background-size: cover;
+				-moz-background-size: cover;
+				-o-background-size: cover;
+				background-size: cover;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="welcome-wrap">
+			Welcome, @name, to the Reactive Instruments Workshop
+		</div>
+	</body>
+</html>
