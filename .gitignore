@@ -1,0 +1,10 @@
+/logs
+/target
+.idea
+/project/project
+/project/.sbtserver
+/project/.sbtserver.lock
+/project/play-fork-run.sbt
+/project/sbt-ui.sbt
+/project/target/
+/.sbtserver

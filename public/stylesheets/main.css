@@ -1,0 +1,14 @@
+#page-wrap {
+    width: 100%;
+    margin-top: 15%;
+    padding-top: 50px;
+    padding-bottom: 50px;
+    background-color: white;
+    opacity: 0.6;
+    -moz-box-shadow: 0 0 20px black;
+    -webkit-box-shadow: 0 0 20px black;
+    box-shadow: 0 0 20px black;
+    font-family: Monaco;
+    font-size: xx-large;
+    text-align: center;
+}
