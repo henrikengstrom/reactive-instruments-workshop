@@ -18,6 +18,9 @@ class WebSocketHandler(out: ActorRef) extends Actor with ActorLogging {
 }
 
 object WebSocketHandler {
-  def props = Props[WebSocketHandler]
+  def props(out: ActorRef) = Props(new WebSocketHandler(out))
   case object SendResponse
 }
+
+
+

@@ -39,7 +39,28 @@ To jump to a specific step `git checkout <step name>`
   
       `> activator run`
 
-#### Credits
+### Step 2 - Wire WebSocket Communication
+
+  * In the `app/controllers/InstrumentController` add the following method: 
+    
+    - `def prices` that wires up a web socket connection like this: 
+    
+      `WebSocket.acceptWithActor[String, String] { req => out => … }`
+      
+    - The prices method should return this (provided) actor `WebSocketHandler.props(out)`
+    
+    * Amend the routes file so that /prices points to the above prices method
+    * Start Play application, open a browser console and type the following:
+    
+      `> var ws = new WebSocket(“ws://localhost:9000/prices");` 
+      
+      `> ws.onmessage = function(x){ console.log(“RESULT:", x); }`
+
+      When you’re done watching the output:
+      
+      `> ws.close();`
+
+##### Credits
 Background image in application from: 
 
 - http://www.zingerbug.com/background.php?MyFile=mountain_landscape_with_lake_oregon_cascades_background_1800x1600.php&ID=C766.php
