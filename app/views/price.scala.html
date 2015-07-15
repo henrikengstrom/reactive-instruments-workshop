@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Instrument Start Page</title>
+    <link rel="stylesheet" media="screen" href="@routes.Assets.versioned("stylesheets/main.css")"/>
+    <style>
+    html {
+    background: url(@routes.Assets.versioned("images/mountain.jpg")) no-repeat center center fixed;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+    }
+    </style>
+    <script language="JavaScript">
+      var websocket;
+      function init() {
+        try {
+          websocket = new WebSocket('ws://localhost:9000/prices');
+
+          websocket.onopen = function(msg) {
+            socketStatus.innerHTML = 'Connected to: ' + event.currentTarget.url;
+            socketStatus.className = 'open';
+          };
+
+          websocket.onmessage = function(msg) {
+            var message = event.data;
+            messagesList.innerHTML += '<li class="received"><span>Received:</span>' + message + '</li>';
+          };
+
+          websocket.onclose = function(msg) {
+            socketStatus.innerHTML = 'Disconnected - see error log for more information';
+          };
+        }
+        catch(ex){
+          console.log(ex);
+        }
+
+      }
+      function quit(){
+        if (websocket != null) {
+          console.log("Closing websocket");
+          websocket.close();
+          websocket=null;
+        }
+      }
+      function reconnect() {
+        quit();
+        init();
+      }
+
+      function sendData() {
+          messagesList.innerHTML = '';
+          var instrumentId = document.getElementById("instrumentId").value;
+          if (instrumentId != undefined && instrumentId.length > 0) {
+            websocket.send('{ "instrument": "' + instrumentId + '" }');
+          }
+      };
+    </script>
+  </head>
+
+  <body onload="init()">
+    <div id="price-wrap">
+      <h4>Instrument Prices</h4>
+      <div id="socketStatus"></div>
+      <br>
+      <p>
+        Instrument:
+        <input type="text" id="instrumentId"><input type="submit" value="Get Price" onclick="sendData()">
+      </p>
+      <div id="messagesList"></div>
+    </div>
+  </body>
+</html>
