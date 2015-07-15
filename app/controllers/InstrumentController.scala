@@ -2,12 +2,12 @@ package controllers
 
 import actors.WebSocketHandler
 import play.api.mvc.{WebSocket, Action, Controller}
-import play.twirl.api.Html
 import play.api.Play.current
+import views.html.price
 
 object InstrumentController extends Controller {
   def index = Action {
-    Ok(Html("<h1>Instruments</h1>"))
+    Ok(views.html.price())
   }
 
   def prices = WebSocket.acceptWithActor[String, String] { req => out =>

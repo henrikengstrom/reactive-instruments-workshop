@@ -59,7 +59,95 @@ To jump to a specific step `git checkout <step name>`
       When you’re done watching the output:
       
       `> ws.close();`
+      
 
+### Step 3 - WebSocketHandler Dissection
+  
+Dissect the following parts of the existing `WebSocketHandler`
+  
+  * Actor base classes: `ActorRef`, `Actor`, `ActorLogging`, `Props`
+  * companion object pattern for `Props`
+  * actor context
+  * actor context.system 
+  * Scheduler functionality
+
+### Step 4 - Client and InstrumentController
+
+Wire up a new view for prices
+
+  * Update method index in `app/controllers/InstrumentController` to use view `app/views/price.scala.html` file
+  	- hint: Ok(views.html.price())
+  * Study how the Javascript websocket connection is created in the above view file
+  	- hint: `<body onload=init()>` is where things are wired up 
+  * Run Play and go to [http//localhost:9000/start](http//localhost:9000/start) to see the new view
+
+### Step 5 - InstrumentController and WebSocketHandler
+
+In this step we will wire up the communication between the price server and the client via our Play app.
+A suggested pattern is to send messages to `self`, i.e. the actor you're in, for the different steps involved.
+Make sure to add any case object/classes in the companion object of the actor class, i.e. `object WebSocketHandler`.
+
+  * Update prices in `app/controllers/InstrumentController` to handle `JsValue` instead of `String` (both directions)
+    - hint: see the `[String, String]` syntax in there? It should take `JsValue` instead.
+  * Implement the `app/actors/WebSocketHandler` functionality 
+    - handle incoming JsValue message and extract instrument id 
+      - hints: 
+        - some good imports: `import play.api.libs.json._`
+        - the receive method should no longer expect `String` but `JsValue` from the client
+        - parsing can be done with `(json \ "x").asOpt[String]` where "x" is the JSON field you want to get (`asOpt[String]` means that the result will be either an `Option[String]` or `None`)
+        - `Option` has a couple of useful methods that can be used to extract the data, e.g. `isDefined`, `get` or even better `myOption map { value => ... }`
+        - make sure to set the instrument as local state in your actor (a var value in the class in other words)      
+    - call price server (http://localhost:8080/instrument/id) with the Play WS util lib
+      - hints:
+        - some good imports: `import play.api.libs.ws.WS`, `import play.api.Play.current`
+        - WS usage: `WS.url("http://someurl").withRequestTimeout(5000).get` 
+          - the above will give you a `Future[WSResponse]` back and the easiest way to handle futures is something like this:
+           
+          		val myFuture = // some Future[WsResult]
+          		myFuture map { wsResult => 
+          		  val theBodyOfTheResponse = resp.body
+                  // do something with the value above
+          		} recover {
+          		  case e: ConnectException => // stop this actor, see context.system.stop(...)
+          		  case e: TimeoutException => // send error message back to web client
+          		}
+          
+          - pro-tip for the above is to send the `resp.body` as part of a case class to your`self`
+          
+    - parse JSON result from WS call
+      - hints:
+        - some good imports: `import play.api.libs.json._` and `import play.api.libs.functional.syntax._`
+        - parsing of JSON can be done like this `val instrument = (json \ "instrument").asOpt[String]` 
+        - if you want to make something more elaborate you can take a look at [Reads](https://www.playframework.com/documentation/2.3.x/ScalaJsonCombinators), e.g.
+        
+        		case class PriceInfo(instrument: String, price: Int, timestamp: Long)
+        		implicit val priceInfoReads: Reads[PriceInfo] = (
+				  (JsPath \ "instrument").read[String] and
+				    (JsPath \ "price").read[Int] and
+				    (JsPath \ "timestamp").read[Long]
+				  )(PriceInfo.apply _)
+      
+    - calculate % fluctuation from last price update
+    	- hint: actors can have state! Keep the last price around to be able to calculate the fluctuation.
+    - create JSON response and send to client via websocket 
+      	- hints: 
+      	  - `Json.object("x" -> x, "y" -> y)` is your friend
+      	  - Payload should contain: instrument, price, timestamp and fluctuation
+    - schedule fetching new price in 2 seconds
+        - hint: look at the Akka docs and use `context.system.schedule` to schedule a new retrieval of price in 2 seconds from the result being sent back to the web client.
+
+Done! 
+Now test the UI by starting the Price server:
+	
+	> activator "runMain priceserver.frontend.Main"
+	
+The Play server:
+
+    > activator run
+    
+Browse to [http://localhost:9000/prices](http://localhost:9000/prices) and enter a instrument id (any random string will do).   
+Try this for a couple of different instrument ids. Do you notice that the initial response slows down? What happens if you enter more than five instrument ids? What's the reason for this?
+    
 ##### Credits
 Background image in application from: 
 
