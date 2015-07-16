@@ -2,25 +2,29 @@ package priceserver.backend
 
 import akka.actor.Props
 
-class InstrumentActor(instrumentId: String) extends PriceActor {
+class InstrumentActor extends PriceActor {
 
   def receive: Receive = {
-    case PriceActor.RetrieveCurrentPrice(responseTime) =>
-      Thread.sleep(responseTime)
+    case PriceActor.RetrieveCurrentPrice(instrument, responseTime) =>
+      log.info(s"**** price request for instrument ${instrument} in ${context.self.path.name}")
+
+      simulateSomeHeavyWork(responseTime)
       updateTrendCount()
 
       // poor mans JSON
       sender !
         s"""
           |{
-          |  "instrument": "$instrumentId",
+          |  "instrument": "$instrument",
           |  "price": ${getCurrentPrice()},
           |  "timestamp": ${System.currentTimeMillis}
           |}
         """.stripMargin
   }
+  
+  def simulateSomeHeavyWork(workTime: Long): Unit = Thread.sleep(workTime)
 }
 
 object InstrumentActor {
-  def props(instrumentId: String) = Props(new InstrumentActor(instrumentId))
+  def props = Props[InstrumentActor]
 }

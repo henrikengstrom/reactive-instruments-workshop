@@ -39,7 +39,6 @@ class WebSocketHandler(out: ActorRef) extends Actor with ActorLogging {
 
   def getCurrentPrice(): Unit = {
     instrument map { id =>
-
       WS.url(priceServerUrl + id).withRequestTimeout(5000).get.map { resp =>
         self ! Result(resp.body)
       } recover {
@@ -69,7 +68,7 @@ class WebSocketHandler(out: ActorRef) extends Actor with ActorLogging {
 
   def fluctuation(price: Double): Double = {
     val result =
-      if (lastPrice == 0) 0.0
+      if (lastPrice == 0 || price == 0) 0.0
       else Math.abs(price - lastPrice) / price
     lastPrice = price
     result

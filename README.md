@@ -102,15 +102,15 @@ Make sure to add any case object/classes in the companion object of the actor cl
         - some good imports: `import play.api.libs.ws.WS`, `import play.api.Play.current`
         - WS usage: `WS.url("http://someurl").withRequestTimeout(5000).get` 
           - the above will give you a `Future[WSResponse]` back and the easiest way to handle futures is something like this:
-           
-          		val myFuture = // some Future[WsResult]
-          		myFuture map { wsResult => 
-          		  val theBodyOfTheResponse = resp.body
+                                 
+                val myFuture = // some Future[WsResult]
+                myFuture map { wsResult => 
+                  val theBodyOfTheResponse = resp.body
                   // do something with the value above
-          		} recover {
-          		  case e: ConnectException => // stop this actor, see context.system.stop(...)
-          		  case e: TimeoutException => // send error message back to web client
-          		}
+                } recover {
+                  case e: ConnectException => // stop this actor, see context.system.stop(...)
+                  case e: TimeoutException => // send error message back to web client
+                }
           
           - pro-tip for the above is to send the `resp.body` as part of a case class to your`self`
           
@@ -139,7 +139,7 @@ Make sure to add any case object/classes in the companion object of the actor cl
 Done! 
 Now test the UI by starting the Price server:
 	
-	> activator "runMain priceserver.frontend.Main"
+	> activator "runMain priceserver.frontend.RestMain"
 	
 The Play server:
 
@@ -147,6 +147,92 @@ The Play server:
     
 Browse to [http://localhost:9000/prices](http://localhost:9000/prices) and enter a instrument id (any random string will do).   
 Try this for a couple of different instrument ids. Do you notice that the initial response slows down? What happens if you enter more than five instrument ids? What's the reason for this?
+    
+### Step 6 - Clustering of Price Service
+
+As you could tell in Step 5 the solution we have created so far cannot cope with a lot of requests. This is due to a simulated slowness built into the class `priceserver.backend.PriceController`. In this step we will make sure that the application can handle more requests by using the Akka cluster feature. Instead of just having one price service node we will make sure that it is possible to use the number of nodes required to handle the load.
+
+  * Start off by creating a new main class used to run each node instance called `priceserver.backend.NodeMain`
+    * Use `ClusterActorRefProvider` and set remote configuration in `application.conf`:
+    
+   			akka {
+   			  actor {
+    		  	provider = "akka.cluster.ClusterActorRefProvider"
+    		  }
+    		  remote {
+    		    log-remote-lifecycle-events = off
+    		    netty.tcp {
+    		      hostname = "127.0.0.1"
+    		      port = 0
+                }
+              }
+    * Ensure that the main class can take a port number as input
+  * Create a `priceserver.backend.PriceService` to manage all incoming requests to the cluster
+    * Make sure to register the `PriceService` actor with `ClusterReceptionistExtension`
+    * Create a router with `FromConfig.props` (setting for this is done in the next step)
+  * Go back to `NodeMain` and set up `ClusterSingletonManager` and `ClusterSingletonProxy` for `PriceService` to ensure that there is only one `PriceService` instance running in the cluster at any point in time
+    * hint: `ClusterSingletonManager` code:
+    
+      		system.actorOf(ClusterSingletonManager.props(
+      		  singletonProps = PriceService.props,
+      		  singletonName = "priceService",
+      		  terminationMessage = PoisonPill,
+      		  role = None),
+      		  name = "singletonManager")
+    * hint: `ClusterSingletonProxy` code:
+    
+    		system.actorOf(ClusterSingletonProxy.props(
+      		  singletonPath = "/user/singleton/priceService",
+           	  role = None))
+          		  
+    * hint: Make `PriceService` cluster aware using the _consistent-hashing-pool_ router:
+    
+    	   akka.actor.deployment {
+            /singletonManager/priceService/instrumentActor {
+              router = consistent-hashing-pool
+              nr-of-instances = 10
+              cluster {
+                enabled = on
+                max-nr-of-instances-per-node = 2
+                allow-local-routees = on
+              }
+            }
+          }
+     * hint: you must also configure some cluster seed nodes and add the cluster receptionist extension in the config file:
+     	
+     		akka
+     		  cluster {
+        	    seed-nodes = [
+                  "akka.tcp://ClusterSystem@127.0.0.1:2551",
+                  "akka.tcp://ClusterSystem@127.0.0.1:2552"]
+              }
+
+              extensions = ["akka.contrib.pattern.ClusterReceptionistExtension"]          
+            }
+  * Final step is to handle incoming messages in `PriceService` and to forward them with the help of the router
+    * Forward a message of type `ConsistentHashableEnvelope`  
+    
+To run this you should first start a couple of nodes in the cluster. Let's start with the seed nodes:
+
+	> sbt "runMain priceserver.backend.NodeMain 2551"
+	
+and
+
+    > sbt "runMain priceserver.backend.NodeMain 2552"
+
+Once the seed nodes are up and running you can start a couple of more nodes if you like:
+
+    > sbt "runMain priceserver.backend.NodeMain"
+    
+The next step is to start the price server front-end:
+	
+	> activator "runMain priceserver.frontend.RestMain"
+	
+Finally run the Play server:
+
+    > activator run
+    
+Browse to [http://localhost:9000/prices](http://localhost:9000/prices) and enter a instrument id (any random string will do). Although we cheated in this step, by not using the `PriceController` which contains the slowdown code, I hope you do get that this solution can handle load much better. The more requests you have the more nodes you can start and the requests will be routed automatically to any new nodes in the cluster.    
     
 ##### Credits
 Background image in application from: 

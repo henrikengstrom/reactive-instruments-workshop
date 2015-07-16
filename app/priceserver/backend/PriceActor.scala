@@ -41,5 +41,5 @@ abstract class PriceActor extends Actor with ActorLogging {
 }
 
 object PriceActor {
-  case class RetrieveCurrentPrice(responseTime: Long)
+  case class RetrieveCurrentPrice(instrument: String, responseTime: Long = 0L)
 }
